@@ -78,10 +78,15 @@ end, {
   nargs = "?",
   desc = "Attach to tmux session in terminal buffer",
   complete = function()
+    local tmux = require("tmux-runner.tmux")
     local sessions = require("tmux-runner").get_sessions(false)
+    local current_session = tmux.get_current_session()
+
     return vim.tbl_map(function(s)
       return s.name
-    end, sessions)
+    end, vim.tbl_filter(function(s)
+      return s.name ~= current_session
+    end, sessions))
   end,
 })
 

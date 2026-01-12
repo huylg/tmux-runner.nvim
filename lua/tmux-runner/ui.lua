@@ -24,6 +24,14 @@ function M.select_session(opts, callback)
 
   local sessions = tmux.list_sessions(managed_only)
 
+  -- Filter out current session to prevent self-attach
+  local current_session = tmux.get_current_session()
+  if current_session then
+    sessions = vim.tbl_filter(function(s)
+      return s.name ~= current_session
+    end, sessions)
+  end
+
   if #sessions == 0 then
     vim.notify("No tmux sessions found", vim.log.levels.WARN)
     callback(nil)

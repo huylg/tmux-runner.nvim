@@ -24,6 +24,12 @@ function M.attach(session_name, opts)
     return nil, "Session does not exist: " .. session_name
   end
 
+  -- Prevent attaching to the current session
+  local current_session = tmux.get_current_session()
+  if current_session and current_session == session_name then
+    return nil, "Cannot attach to current tmux session"
+  end
+
   -- Check if we already have a terminal for this session
   local existing = M._terminals[session_name]
   if existing and vim.api.nvim_buf_is_valid(existing.bufnr) then

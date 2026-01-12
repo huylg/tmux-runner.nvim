@@ -26,6 +26,23 @@ function M.is_inside_tmux()
   return vim.env.TMUX ~= nil and vim.env.TMUX ~= ""
 end
 
+---Get the current tmux session name
+---@return string? session_name
+function M.get_current_session()
+  if not M.is_inside_tmux() then
+    return nil
+  end
+
+  local cmd = string.format("%s display-message -p '#S'", config.get().tmux_binary)
+  local output = vim.fn.system(cmd)
+
+  if vim.v.shell_error ~= 0 then
+    return nil
+  end
+
+  return vim.trim(output)
+end
+
 ---Sanitize session name (remove special characters)
 ---@param name string
 ---@return string
