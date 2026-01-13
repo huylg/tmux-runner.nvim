@@ -64,8 +64,8 @@ function M.attach(session_name, opts)
   vim.api.nvim_buf_set_option(bufnr, "bufhidden", "hide")
   vim.api.nvim_buf_set_option(bufnr, "buflisted", false)
 
-  -- Get the attach command
-  local attach_cmd = tmux.get_attach_command(session_name)
+  -- Build the attach command
+  local attach_cmd = string.format("%s attach-session -t %s", config.get().tmux_binary, vim.fn.shellescape(session_name))
 
   -- Start terminal
   local job_id = vim.fn.termopen(attach_cmd, {

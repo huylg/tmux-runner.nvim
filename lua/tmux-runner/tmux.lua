@@ -118,44 +118,6 @@ function M.list_sessions(managed_only)
   return sessions
 end
 
----Create a new detached tmux session running a command
----@param name string Session name (without prefix)
----@param cmd string Command to run
----@return boolean success
----@return string? error_message
-function M.create_session(name, cmd)
-  local full_name = M.get_full_name(name)
-
-  -- Check if session already exists
-  if M.session_exists(full_name) then
-    return false, "Session already exists: " .. full_name
-  end
-
-  -- Create detached session with command
-  local tmux_cmd = string.format(
-    "%s new-session -d -s %s %s",
-    config.get().tmux_binary,
-    vim.fn.shellescape(full_name),
-    vim.fn.shellescape(cmd)
-  )
-
-  vim.fn.system(tmux_cmd)
-
-  if vim.v.shell_error ~= 0 then
-    return false, "Failed to create tmux session"
-  end
-
-  -- Track this session
-  M._sessions[full_name] = {
-    name = name,
-    full_name = full_name,
-    cmd = cmd,
-    created_at = os.time(),
-  }
-
-  return true, nil
-end
-
 ---Kill a tmux session
 ---@param session_name string Full session name
 ---@return boolean success
@@ -240,11 +202,59 @@ function M.send_command(session_name, command)
   return M.send_keys(session_name, "Enter")
 end
 
----Get the attach command for a session
+---Create or attach to a tmux session
+---If session exists, attach to it; otherwise create a new one
+---@param name string Session name (without prefix)
+---@param cwd? string Working directory for the session
+---@return boolean success
+---@return string? error_message
+function M.new_session(name, cwd)
+  local full_name = M.get_full_name(name)
+
+  if M.session_exists(full_name) then
+    return true, nil
+  end
+
+  local cmd = { config.get().tmux_binary, "new-session", "-d", "-s", full_name }
+  
+  if cwd then
+    vim.list_extend(cmd, { "-c", cwd })
+  end
+
+  local result = vim.fn.system(cmd)
+
+  if vim.v.shell_error ~= 0 then
+    return false, "Failed to create tmux session: " .. vim.trim(result)
+  end
+
+  vim.fn.system({ config.get().tmux_binary, "set-option", "-t", full_name, "status", "off" })
+  vim.fn.system({ config.get().tmux_binary, "set-option", "-t", full_name, "detach-on-destroy", "on" })
+
+  return true, nil
+end
+
+---Attach to an existing tmux session
 ---@param session_name string Full session name
----@return string
-function M.get_attach_command(session_name)
-  return string.format("%s attach-session -t %s", config.get().tmux_binary, vim.fn.shellescape(session_name))
+---@return boolean success
+---@return string? error_message
+function M.attach_session(session_name)
+  if not M.session_exists(session_name) then
+    return false, "Session does not exist: " .. session_name
+  end
+
+  local cmd = string.format(
+    "%s attach-session -t %s",
+    config.get().tmux_binary,
+    vim.fn.shellescape(session_name)
+  )
+
+  vim.fn.system(cmd)
+
+  if vim.v.shell_error ~= 0 then
+    return false, "Failed to attach to session"
+  end
+
+  return true, nil
 end
 
 return M

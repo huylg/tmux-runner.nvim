@@ -56,9 +56,17 @@ function M.run(cmd, name)
 
   name = name or ("task_" .. os.time())
 
-  local ok, err = tmux.create_session(name, cmd)
+  local full_name = tmux.get_full_name(name)
+  
+  local ok, err = tmux.new_session(name)
   if not ok then
     vim.notify("tmux-runner: " .. (err or "Failed to create session"), vim.log.levels.ERROR)
+    return false, nil
+  end
+
+  local cmd_ok, cmd_err = tmux.send_command(full_name, cmd)
+  if not cmd_ok then
+    vim.notify("tmux-runner: " .. (cmd_err or "Failed to send command"), vim.log.levels.ERROR)
     return false, nil
   end
 
