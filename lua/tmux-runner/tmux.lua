@@ -206,22 +206,27 @@ end
 ---If session exists, attach to it; otherwise create a new one
 ---@param name string Session name (without prefix)
 ---@param cwd? string Working directory for the session
+---@param cmd? string Command to run in the session
 ---@return boolean success
 ---@return string? error_message
-function M.new_session(name, cwd)
+function M.new_session(name, cwd, cmd)
   local full_name = M.get_full_name(name)
 
   if M.session_exists(full_name) then
     return true, nil
   end
 
-  local cmd = { config.get().tmux_binary, "new-session", "-d", "-s", full_name }
+  local tmux_cmd = { config.get().tmux_binary, "new-session", "-d", "-s", full_name }
   
   if cwd then
-    vim.list_extend(cmd, { "-c", cwd })
+    vim.list_extend(tmux_cmd, { "-c", cwd })
   end
 
-  local result = vim.fn.system(cmd)
+  if cmd then
+    table.insert(tmux_cmd, cmd)
+  end
+
+  local result = vim.fn.system(tmux_cmd)
 
   if vim.v.shell_error ~= 0 then
     return false, "Failed to create tmux session: " .. vim.trim(result)

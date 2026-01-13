@@ -63,9 +63,16 @@ function M.attach(session_name, opts)
   -- Set buffer options
   vim.api.nvim_buf_set_option(bufnr, "bufhidden", "hide")
   vim.api.nvim_buf_set_option(bufnr, "buflisted", false)
+  vim.api.nvim_win_set_option(winid, "statusline", "")
 
-  -- Build the attach command
-  local attach_cmd = string.format("%s attach-session -t %s", config.get().tmux_binary, vim.fn.shellescape(session_name))
+  -- Build the attach command with chained set-option
+  local attach_cmd = string.format(
+    "%s attach-session -t %s \\; set-option -t %s status off \\; set-option -t %s detach-on-destroy on",
+    config.get().tmux_binary,
+    vim.fn.shellescape(session_name),
+    vim.fn.shellescape(session_name),
+    vim.fn.shellescape(session_name)
+  )
 
   -- Start terminal
   local job_id = vim.fn.termopen(attach_cmd, {

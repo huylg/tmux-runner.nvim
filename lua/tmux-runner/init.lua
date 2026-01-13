@@ -58,19 +58,12 @@ function M.run(cmd, name)
 
   local full_name = tmux.get_full_name(name)
   
-  local ok, err = tmux.new_session(name)
+  local ok, err = tmux.new_session(name, nil, cmd)
   if not ok then
     vim.notify("tmux-runner: " .. (err or "Failed to create session"), vim.log.levels.ERROR)
     return false, nil
   end
 
-  local cmd_ok, cmd_err = tmux.send_command(full_name, cmd)
-  if not cmd_ok then
-    vim.notify("tmux-runner: " .. (cmd_err or "Failed to send command"), vim.log.levels.ERROR)
-    return false, nil
-  end
-
-  local full_name = tmux.get_full_name(name)
   vim.notify("Started session: " .. full_name, vim.log.levels.INFO)
 
   -- Auto-attach if configured
