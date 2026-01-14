@@ -362,45 +362,4 @@ function M.edit_pinned_list()
   ui.edit_pins()
 end
 
----Toggle terminal for a pinned item
----@param item table Pinned item with type and name
-function M.toggle_pinned(item)
-  if item.type == "session" then
-    -- Toggle terminal for session
-    M.toggle(item.name)
-  elseif item.type == "command" then
-    -- For commands, check if session exists
-    local tmux = get_tmux()
-    local session_name = item.name
-
-    -- If session exists, toggle it
-    -- Otherwise, run the command to create it
-    if tmux.session_exists(session_name) then
-      M.toggle(session_name)
-    else
-      local ok, created_name = M.run(item.cmd, item.name, item.cwd)
-      if ok then
-        vim.notify("Started: " .. item.name .. " (" .. created_name .. ")", vim.log.levels.INFO)
-
-        -- Auto-attach
-        local cfg = get_config().get()
-        if cfg.attach_on_create then
-          get_terminal().attach(created_name)
-        end
-      end
-    end
-  end
-end
-
----Select and toggle a pinned item
-function M.select_and_toggle_pinned()
-  local ui = get_ui()
-
-  ui.select_pinned_to_toggle(function(item)
-    if item then
-      M.toggle_pinned(item)
-    end
-  end)
-end
-
 return M

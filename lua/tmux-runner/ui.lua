@@ -211,23 +211,4 @@ function M.confirm_remove_pin(message, callback)
   end)
 end
 
----Select pinned item to toggle terminal
----@param callback fun(item: table?)
-function M.select_pinned_to_toggle(callback)
-  local pinned_items = pins.get_all()
-
-  if #pinned_items == 0 then
-    vim.notify("No pinned items found. Use :TmuxPin or :TmuxPinCommand to add pins.", vim.log.levels.WARN)
-    callback(nil)
-    return
-  end
-
-  vim.ui.select(pinned_items, {
-    prompt = "Select pinned item to toggle:",
-    format_item = format_pinned_item,
-  }, function(selected)
-    callback(selected)
-  end)
-end
-
 return M
