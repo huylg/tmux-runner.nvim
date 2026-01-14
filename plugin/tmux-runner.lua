@@ -343,3 +343,11 @@ vim.api.nvim_create_user_command("TmuxEditPins", function()
 end, {
   desc = "Edit pinned sessions and commands",
 })
+
+-- :TmuxTogglePin
+-- Toggle terminal for a pinned item
+vim.api.nvim_create_user_command("TmuxTogglePin", function()
+  require("tmux-runner").select_and_toggle_pinned()
+end, {
+  desc = "Toggle terminal for a pinned session or command",
+})

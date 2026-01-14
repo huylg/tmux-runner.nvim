@@ -107,6 +107,7 @@ require("tmux-runner").setup({
 | `:TmuxPinCommand <cmd> [name]` | Run command, create session, then pin it |
 | `:TmuxUnpin [name]` | Unpin a session or command (interactive if no name) |
 | `:TmuxSelectPinned` | Select from pinned list and run/attach |
+| `:TmuxTogglePin` | Toggle terminal for a pinned session or command |
 | `:TmuxEditPins` | Edit pinned sessions and commands |
 
 ## Lua API
@@ -155,6 +156,7 @@ runner.pin_session("nvim_runner_frontend")  -- Pin existing session
 runner.pin_command("npm run dev", "dev")    -- Run command and pin
 runner.unpin("dev")                         -- Unpin by name
 runner.select_pinned()                      -- Select and run/attach
+runner.select_and_toggle_pinned()            -- Toggle terminal for pinned item
 runner.edit_pinned_list()                   -- Edit pins file manually
 ```
 
@@ -178,6 +180,7 @@ vim.keymap.set("n", "<leader>tt", ":TmuxToggle<CR>", { desc = "Toggle tmux termi
 
 -- Pin sessions
 vim.keymap.set("n", "<leader>tp", ":TmuxSelectPinned<CR>", { desc = "Select pinned session/command" })
+vim.keymap.set("n", "<leader>to", ":TmuxTogglePin<CR>", { desc = "Toggle pinned terminal" })
 ```
 
 ## Pin Sessions & Commands
