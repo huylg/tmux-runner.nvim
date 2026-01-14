@@ -12,7 +12,6 @@ local M = {}
 ---@field split_size number Terminal split size (rows for horizontal, cols for vertical)
 ---@field close_on_exit boolean Close terminal buffer when session ends
 ---@field focus_on_attach boolean Focus terminal window when attaching
----@field pinned_commands {name: string, cmd: string, cwd?: string}[] Pre-pinned commands
 
 ---@type TmuxRunnerConfig
 M.defaults = {
@@ -24,7 +23,6 @@ M.defaults = {
   split_size = 15,
   close_on_exit = true,
   focus_on_attach = true,
-  pinned_commands = {},
 }
 
 ---@type TmuxRunnerConfig

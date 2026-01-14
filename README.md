@@ -10,8 +10,6 @@ A Neovim plugin that allows you to run multiple commands in background tmux sess
 - 📋 List and manage sessions
 - ⌨️ Send keys/commands to running sessions
 - 🎨 Interactive session picker with `vim.ui.select`
-- 📌 Pin sessions for quick access
-- ⚡ Pin commands to run quickly with session auto-creation
 
 ## Requirements
 
@@ -59,33 +57,27 @@ require("tmux-runner").setup()
 require("tmux-runner").setup({
   -- Path to tmux binary
   tmux_binary = "tmux",
-
+  
   -- Prefix for created session names
   session_prefix = "nvim_runner_",
-
+  
   -- Default shell for new sessions
   default_shell = vim.o.shell,
-
+  
   -- Auto-attach to session after creating it
   attach_on_create = false,
-
+  
   -- Terminal split direction: "horizontal" or "vertical"
   split_direction = "horizontal",
-
+  
   -- Terminal split size (rows for horizontal, cols for vertical)
   split_size = 15,
-
+  
   -- Close terminal buffer when session ends
   close_on_exit = true,
-
+  
   -- Focus terminal window when attaching
   focus_on_attach = true,
-
-  -- Pre-defined commands to pin (available on startup)
-  pinned_commands = {
-    { name = "dev", cmd = "npm run dev", cwd = nil },
-    { name = "test", cmd = "npm run test:watch", cwd = nil },
-  },
 })
 ```
 
@@ -103,11 +95,6 @@ require("tmux-runner").setup({
 | `:TmuxToggle [session]` | Toggle terminal visibility for session |
 | `:TmuxSend <session> <keys>` | Send keys to a session |
 | `:TmuxSendCommand <session> <cmd>` | Send command with Enter to a session |
-| `:TmuxPin [session]` | Pin an existing session (interactive if no name) |
-| `:TmuxPinCommand <cmd> [name]` | Run command, create session, then pin it |
-| `:TmuxUnpin [name]` | Unpin a session or command (interactive if no name) |
-| `:TmuxSelectPinned` | Select from pinned list and run/attach |
-| `:TmuxEditPins` | Edit pinned sessions and commands |
 
 ## Lua API
 
@@ -149,13 +136,6 @@ end
 -- Get sessions programmatically
 local sessions = runner.get_sessions()      -- managed only
 local all_sessions = runner.get_sessions(false)  -- all
-
--- Pin sessions and commands
-runner.pin_session("nvim_runner_frontend")  -- Pin existing session
-runner.pin_command("npm run dev", "dev")    -- Run command and pin
-runner.unpin("dev")                         -- Unpin by name
-runner.select_pinned()                      -- Select and run/attach
-runner.edit_pinned_list()                   -- Edit pins file manually
 ```
 
 ## Example Keybindings
@@ -175,96 +155,6 @@ vim.keymap.set("n", "<leader>tk", ":TmuxKill<CR>", { desc = "Kill tmux session" 
 
 -- Toggle terminal
 vim.keymap.set("n", "<leader>tt", ":TmuxToggle<CR>", { desc = "Toggle tmux terminal" })
-
--- Pin sessions
-vim.keymap.set("n", "<leader>tp", ":TmuxSelectPinned<CR>", { desc = "Select pinned session/command" })
-```
-
-## Pin Sessions & Commands
-
-The pin feature allows you to quickly access frequently used sessions or commands.
-
-### Pre-Pin Commands in Config
-
-Define commands in your setup that will be available on startup:
-
-```lua
-require("tmux-runner").setup({
-  pinned_commands = {
-    { name = "dev", cmd = "npm run dev", cwd = nil },
-    { name = "test", cmd = "npm run test:watch", cwd = nil },
-    { name = "docker", cmd = "docker-compose up", cwd = nil },
-  },
-})
-```
-
-### Pin Existing Sessions
-
-```vim
-" Pin an existing session
-:TmuxPin nvim_runner_frontend
-
-" Interactive selection
-:TmuxPin
-" Select from available sessions to pin
-```
-
-### Pin After Running Commands
-
-```vim
-" Run command and pin the resulting session
-:TmuxPinCommand npm run dev frontend
-
-" Run without specifying name (auto-generated)
-:TmuxPinCommand "npm run build && npm run serve"
-```
-
-### Select from Pinned List
-
-```vim
-" Select from all pinned items
-:TmuxSelectPinned
-" Shows:
-"   ● 📌 nvim_runner_frontend      (attach to existing session)
-"   ○ 📌 nvim_runner_backend       (killed session, still pinned)
-"   ⚡ dev (npm run dev)           (run command and create session)
-"   ⚡ test (npm run test:watch)   (run command and create session)
-```
-
-- **📌 Session pins**: Attach to existing tmux sessions (● = active, ○ = inactive)
-- **⚡ Command pins**: Run the command, create a session, and attach
-
-### Edit Pinned List Manually
-
-```vim
-" Open the pins file for manual editing
-:TmuxEditPins
-```
-
-This opens `~/.local/share/nvim/tmux-runner/pins.lua`:
-
-```lua
-return {
-  sessions = {
-    "nvim_runner_frontend",
-    "nvim_runner_backend",
-  },
-  commands = {
-    { name = "dev", cmd = "npm run dev", cwd = nil },
-    { name = "test", cmd = "npm run test:watch", cwd = nil },
-  }
-}
-```
-
-### Unpin Items
-
-```vim
-" Unpin by name
-:TmuxUnpin dev
-
-" Interactive selection
-:TmuxUnpin
-" Select item to unpin
 ```
 
 ## Use Cases
