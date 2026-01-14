@@ -57,6 +57,10 @@ function M.run(cmd, name)
   local base_cmd = cmd:match("%S+")
   name = name or tmux.sanitize_name(base_cmd)
 
+  local pwd = vim.fn.getcwd():match("([^/]+)$") or vim.fn.getcwd()
+  pwd = tmux.sanitize_name(pwd)
+  name = pwd .. "_" .. name
+
   local full_name = tmux.get_full_name(name)
   
   local ok, err = tmux.new_session(name, nil, cmd)
