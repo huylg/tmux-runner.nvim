@@ -188,7 +188,7 @@ function M.toggle(session_name)
   if session_name and session_name ~= "" then
     terminal.toggle(session_name)
   else
-    ui.select_session({ managed_only = false }, function(session)
+    ui.select_session({ managed_only = true }, function(session)
       if session then
         terminal.toggle(session.name)
       end

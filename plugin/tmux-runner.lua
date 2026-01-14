@@ -140,10 +140,15 @@ end, {
   nargs = "?",
   desc = "Toggle terminal for tmux session",
   complete = function()
+    local tmux = require("tmux-runner.tmux")
     local sessions = require("tmux-runner").get_sessions(false)
+    local current_session = tmux.get_current_session()
+
     return vim.tbl_map(function(s)
       return s.name
-    end, sessions)
+    end, vim.tbl_filter(function(s)
+      return s.name ~= current_session and s.is_managed
+    end, sessions))
   end,
 })
 
