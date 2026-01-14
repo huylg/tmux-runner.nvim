@@ -10,9 +10,8 @@ local M = {}
 ---@param session table
 ---@return string
 local function format_session(session)
-  local status = session.attached > 0 and "attached" or "detached"
-  local created = os.date("%H:%M:%S", session.created)
-  return string.format("%s [%s] (%d windows, started %s)", session.name, status, session.windows, created)
+  local cwd_display = session.cwd and session.cwd ~= "" and " - " .. session.cwd or ""
+  return session.name .. cwd_display
 end
 
 ---Select a tmux session using vim.ui.select

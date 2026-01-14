@@ -77,14 +77,15 @@ local function parse_sessions(output)
   local sessions = {}
   for _, line in ipairs(output) do
     if line and line ~= "" then
-      -- Format: session_name:created_timestamp:attached_count:window_count
-      local name, created, attached, windows = line:match("([^:]+):([^:]+):([^:]+):([^:]+)")
+      -- Format: session_name:created_timestamp:attached_count:window_count:cwd
+      local name, created, attached, windows, cwd = line:match("([^:]+):([^:]+):([^:]+):([^:]+):(.*)")
       if name then
         table.insert(sessions, {
           name = name,
           created = tonumber(created) or 0,
           attached = tonumber(attached) or 0,
           windows = tonumber(windows) or 1,
+          cwd = cwd or "",
           is_managed = vim.startswith(name, config.get().session_prefix),
         })
       end
@@ -98,7 +99,7 @@ end
 ---@return table[] sessions
 function M.list_sessions(managed_only)
   local cmd = string.format(
-    "%s list-sessions -F '#{session_name}:#{session_created}:#{session_attached}:#{session_windows}' 2>/dev/null",
+    "%s list-sessions -F '#{session_name}:#{session_created}:#{session_attached}:#{session_windows}:#{pane_current_path}' 2>/dev/null",
     config.get().tmux_binary
   )
   local output = vim.fn.systemlist(cmd)
