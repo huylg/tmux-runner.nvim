@@ -113,7 +113,7 @@ end
 function M.select_and_attach()
   local ui = get_ui()
 
-  ui.select_session({ managed_only = false }, function(session)
+  ui.select_session({ managed_only = true }, function(session)
     if session then
       M.attach(session.name)
     end
