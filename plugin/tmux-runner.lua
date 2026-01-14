@@ -132,24 +132,27 @@ end, {
   desc = "Kill all managed tmux sessions",
 })
 
--- :TmuxToggle [session_name]
--- Toggle terminal visibility for a session
+-- :TmuxToggle <command>
+-- Toggle session state for a command
 vim.api.nvim_create_user_command("TmuxToggle", function(opts)
-  require("tmux-runner").toggle(opts.args)
+  -- Join all arguments as the command (preserves spaces)
+  local cmd = table.concat(opts.fargs, " ")
+  require("tmux-runner").toggle(cmd)
 end, {
-  nargs = "?",
-  desc = "Toggle terminal for tmux session",
-  complete = function()
-    local tmux = require("tmux-runner.tmux")
-    local sessions = require("tmux-runner").get_sessions(false)
-    local current_session = tmux.get_current_session()
+  nargs = "+",
+  desc = "Toggle session state for a command (run/attach/close)",
+  complete = "shellcmd",
+})
 
-    return vim.tbl_map(function(s)
-      return s.name
-    end, vim.tbl_filter(function(s)
-      return s.name ~= current_session and s.is_managed
-    end, sessions))
-  end,
+-- :TmuxDetach <command>
+-- Close terminal window for a command if opened
+vim.api.nvim_create_user_command("TmuxDetach", function(opts)
+  local cmd = table.concat(opts.fargs, " ")
+  require("tmux-runner").detach(cmd)
+end, {
+  nargs = "+",
+  desc = "Close terminal window for a command",
+  complete = "shellcmd",
 })
 
 -- :TmuxSend <session_name> <keys>

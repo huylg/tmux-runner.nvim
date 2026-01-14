@@ -184,20 +184,91 @@ function M.kill_all()
   return count
 end
 
----Toggle terminal visibility for a session
----@param session_name? string Full session name (uses interactive select if not provided)
-function M.toggle(session_name)
-  local terminal = get_terminal()
-  local ui = get_ui()
+---Toggle session state for a command
+---@param cmd string Command to toggle
+function M.toggle(cmd)
+  if not cmd or cmd == "" then
+    vim.notify("Usage: TmuxToggle <command>", vim.log.levels.ERROR)
+    return
+  end
 
-  if session_name and session_name ~= "" then
-    terminal.toggle(session_name)
-  else
-    ui.select_session({ managed_only = true }, function(session)
-      if session then
-        terminal.toggle(session.name)
+  local tmux = get_tmux()
+  local terminal = get_terminal()
+
+  -- Derive session name from command (using base command only, same as M.run)
+  local base_cmd = cmd:match("%S+")
+  local pwd = vim.fn.getcwd():match("([^/]+)$") or vim.fn.getcwd()
+  pwd = tmux.sanitize_name(pwd)
+  local name = pwd .. "_" .. tmux.sanitize_name(base_cmd)
+  local full_name = tmux.get_full_name(name)
+
+  -- State 1: Session not started yet
+  if not tmux.session_exists(full_name) then
+    M.run(cmd)
+    return
+  end
+
+  -- State 2: Session exists, check terminal state
+  if terminal.is_open(full_name) then
+    -- Terminal exists, check if visible
+    local term = terminal.get_terminal(full_name)
+    if term and vim.api.nvim_buf_is_valid(term.bufnr) then
+      for _, winid in ipairs(vim.api.nvim_list_wins()) do
+        if vim.api.nvim_win_is_valid(winid) and vim.api.nvim_win_get_buf(winid) == term.bufnr then
+          -- State 3: Session started and window opened - close window
+          vim.api.nvim_win_close(winid, false)
+          return
+        end
       end
-    end)
+    end
+  end
+
+  -- State 2 (continued): Session started but window not opened
+  M.attach(full_name)
+end
+
+---Close terminal window for a command if opened
+---@param cmd string Command to close window for
+function M.detach(cmd)
+  if not cmd or cmd == "" then
+    vim.notify("Usage: TmuxDetach <command>", vim.log.levels.ERROR)
+    return
+  end
+
+  local tmux = get_tmux()
+  local terminal = get_terminal()
+
+  -- Derive session name from command (using base command only)
+  local base_cmd = cmd:match("%S+")
+  local pwd = vim.fn.getcwd():match("([^/]+)$") or vim.fn.getcwd()
+  pwd = tmux.sanitize_name(pwd)
+  local name = pwd .. "_" .. tmux.sanitize_name(base_cmd)
+  local full_name = tmux.get_full_name(name)
+
+  -- Check if session exists
+  if not tmux.session_exists(full_name) then
+    vim.notify("Session not found: " .. full_name, vim.log.levels.WARN)
+    return
+  end
+
+  -- Check if terminal is open and visible
+  local term = terminal.get_terminal(full_name)
+  if not term or not vim.api.nvim_buf_is_valid(term.bufnr) then
+    vim.notify("Terminal not open for: " .. full_name, vim.log.levels.WARN)
+    return
+  end
+
+  -- Find and close visible windows showing the terminal
+  local closed_count = 0
+  for _, winid in ipairs(vim.api.nvim_list_wins()) do
+    if vim.api.nvim_win_is_valid(winid) and vim.api.nvim_win_get_buf(winid) == term.bufnr then
+      vim.api.nvim_win_close(winid, false)
+      closed_count = closed_count + 1
+    end
+  end
+
+  if closed_count > 0 then
+    vim.notify("Closed " .. closed_count .. " window(s) for: " .. full_name, vim.log.levels.INFO)
   end
 end
 
