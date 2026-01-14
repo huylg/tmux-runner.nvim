@@ -20,6 +20,10 @@ local function get_ui()
   return require("tmux-runner.ui")
 end
 
+local function get_pins()
+  return require("tmux-runner.pins")
+end
+
 ---Setup the plugin with user configuration
 ---@param opts? TmuxRunnerConfig
 function M.setup(opts)
@@ -32,6 +36,9 @@ function M.setup(opts)
     vim.notify("tmux-runner: tmux not found in PATH!", vim.log.levels.ERROR)
     return
   end
+
+  -- Load config-based pinned commands
+  get_pins().load_config_commands()
 
   -- Create autocommands for cleanup
   local group = vim.api.nvim_create_augroup("TmuxRunner", { clear = true })
@@ -259,6 +266,100 @@ end
 ---@return table[]
 function M.get_sessions(managed_only)
   return get_tmux().list_sessions(managed_only)
+end
+
+---Pin an existing session
+---@param session_name string Full session name
+---@return boolean success
+function M.pin_session(session_name)
+  local pins = get_pins()
+  local tmux = get_tmux()
+
+  -- Check if session exists
+  if not tmux.session_exists(session_name) then
+    vim.notify("Session does not exist: " .. session_name, vim.log.levels.ERROR)
+    return false
+  end
+
+  local ok = pins.add_session(session_name)
+  if ok then
+    vim.notify("Pinned session: " .. session_name, vim.log.levels.INFO)
+  end
+  return ok
+end
+
+---Pin a command (run it, create session, then pin)
+---@param cmd string Command to run
+---@param name? string Optional session name
+---@param cwd? string Working directory
+---@return boolean success
+---@return string? session_name
+function M.pin_command(cmd, name, cwd)
+  -- Run the command first
+  local ok, session_name = M.run(cmd, name)
+  if not ok then
+    return false, nil
+  end
+
+  -- Pin the created session
+  local pins = get_pins()
+  local pin_name = name or session_name
+
+  ok = pins.add_command(pin_name, cmd, cwd)
+  if ok then
+    vim.notify("Pinned command: " .. pin_name, vim.log.levels.INFO)
+  end
+
+  return ok, session_name
+end
+
+---Unpin a session or command
+---@param identifier string|number Session name, command name, or numeric index
+---@return boolean success
+function M.unpin(identifier)
+  local pins = get_pins()
+  local ok = pins.remove(identifier)
+  if ok then
+    vim.notify("Unpinned: " .. tostring(identifier), vim.log.levels.INFO)
+  end
+  return ok
+end
+
+---Select from pinned list and run/attach
+function M.select_pinned()
+  local ui = get_ui()
+
+  ui.select_pinned(function(item)
+    if not item then
+      return
+    end
+
+    if item.type == "session" then
+      -- Attach to existing session
+      if M.attach(item.name) then
+        vim.notify("Attached to: " .. item.name, vim.log.levels.INFO)
+      end
+    elseif item.type == "command" then
+      -- Run command and create session
+      local ok, session_name = M.run(item.cmd, item.name, item.cwd)
+      if ok then
+        vim.notify("Started: " .. item.name .. " (" .. session_name .. ")", vim.log.levels.INFO)
+
+        -- Attach if configured
+        local cfg = get_config().get()
+        if cfg.attach_on_create then
+          get_terminal().attach(session_name)
+        end
+      end
+    end
+  end)
+end
+
+---Edit the pinned list
+function M.edit_pinned_list()
+  local pins = get_pins()
+  local ui = get_ui()
+  ui.edit_pins()
 end
 
 return M

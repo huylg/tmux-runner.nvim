@@ -3,6 +3,7 @@
 
 local config = require("tmux-runner.config")
 local tmux = require("tmux-runner.tmux")
+local pins = require("tmux-runner.pins")
 
 local M = {}
 
@@ -129,6 +130,80 @@ end
 ---@param message string
 ---@param callback fun(confirmed: boolean)
 function M.confirm(message, callback)
+  vim.ui.select({ "Yes", "No" }, {
+    prompt = message,
+  }, function(choice)
+    callback(choice == "Yes")
+  end)
+end
+
+---Format pinned item for display
+---@param item table
+---@return string
+local function format_pinned_item(item)
+  if item.type == "session" then
+    local exists = tmux.session_exists(item.name)
+    local status = exists and "●" or "○"
+    return status .. " 📌 " .. item.name
+  else
+    local cwd_str = item.cwd and (" [" .. item.cwd .. "]") or ""
+    return "⚡ " .. item.name .. " (" .. item.cmd .. ")" .. cwd_str
+  end
+end
+
+---Select from pinned items
+---@param callback fun(item: table?)
+function M.select_pinned(callback)
+  local pinned_items = pins.get_all()
+
+  if #pinned_items == 0 then
+    vim.notify("No pinned items found. Use :TmuxPin or :TmuxPinCommand to add pins.", vim.log.levels.WARN)
+    callback(nil)
+    return
+  end
+
+  vim.ui.select(pinned_items, {
+    prompt = "Select pinned item:",
+    format_item = format_pinned_item,
+  }, function(selected)
+    callback(selected)
+  end)
+end
+
+---Edit the pins file
+function M.edit_pins()
+  local pins_file = vim.fn.stdpath("data") .. "/tmux-runner/pins.lua"
+
+  -- Create directory if it doesn't exist
+  local dir = vim.fn.fnamemodify(pins_file, ":h")
+  if vim.fn.isdirectory(dir) == 0 then
+    vim.fn.mkdir(dir, "p")
+  end
+
+  -- Check if file exists, create if not
+  if vim.fn.filereadable(pins_file) == 0 then
+    local pins_data = pins.list()
+    pins.save(pins_data)
+  end
+
+  -- Open the file
+  vim.cmd("edit " .. pins_file)
+
+  -- Create an autocmd to reload pins when the file is written
+  local group = vim.api.nvim_create_augroup("TmuxRunnerPins", { clear = true })
+  vim.api.nvim_create_autocmd("BufWritePost", {
+    group = group,
+    pattern = pins_file,
+    callback = function()
+      vim.notify("Pins updated", vim.log.levels.INFO)
+    end,
+  })
+end
+
+---Confirm removing a pin
+---@param message string
+---@param callback fun(confirmed: boolean)
+function M.confirm_remove_pin(message, callback)
   vim.ui.select({ "Yes", "No" }, {
     prompt = message,
   }, function(choice)
