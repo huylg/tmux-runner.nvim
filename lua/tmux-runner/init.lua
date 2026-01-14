@@ -54,7 +54,7 @@ function M.run(cmd, name)
   local tmux = get_tmux()
   local config = get_config()
 
-  name = name or ("task_" .. os.time())
+  name = name or tmux.sanitize_name(cmd)
 
   local full_name = tmux.get_full_name(name)
   
