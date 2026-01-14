@@ -54,7 +54,8 @@ function M.run(cmd, name)
   local tmux = get_tmux()
   local config = get_config()
 
-  name = name or tmux.sanitize_name(cmd)
+  local base_cmd = cmd:match("%S+")
+  name = name or tmux.sanitize_name(base_cmd)
 
   local full_name = tmux.get_full_name(name)
   
