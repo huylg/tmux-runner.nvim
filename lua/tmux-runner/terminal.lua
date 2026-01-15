@@ -281,11 +281,7 @@ function M._open_scrollback(session_name)
 
   -- Capture tmux pane content with escape sequences, join wrapped lines
   local cfg = config.get()
-  local cmd = string.format(
-    "%s capture-pane -t %s -e -J -p -S -",
-    cfg.tmux_binary,
-    vim.fn.shellescape(session_name)
-  )
+  local cmd = { cfg.tmux_binary, "capture-pane", "-t", session_name, "-p", "-e", "-J", "-S", "-" }
 
   local output = vim.fn.systemlist(cmd)
   if vim.v.shell_error ~= 0 or not output then
