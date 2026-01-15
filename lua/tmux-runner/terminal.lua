@@ -293,21 +293,18 @@ function M._open_scrollback(session_name)
     return
   end
 
-  -- Convert lines to single string with newlines
-  local content = table.concat(output, "\n")
-
   -- Create or reuse scrollback buffer
   local scrollback_buf = term.scrollback_buf
-  if not scrollback_buf or not vim.api.nvim_buf_is_valid(scrollback_buf) then
+  local is_new = not scrollback_buf or not vim.api.nvim_buf_is_valid(scrollback_buf)
+
+  if is_new then
     scrollback_buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = scrollback_buf })
     vim.api.nvim_set_option_value("buflisted", false, { buf = scrollback_buf })
     vim.api.nvim_set_option_value("filetype", "tmux-scrollback", { buf = scrollback_buf })
     vim.api.nvim_buf_set_name(scrollback_buf, "tmux-scrollback://" .. session_name)
     term.scrollback_buf = scrollback_buf
-
-    -- Open terminal emulator for scrollback (this will render ANSI codes)
-    term.scrollback_channel = vim.api.nvim_open_term(scrollback_buf, cfg.tmux_binary)
+    term.scrollback_channel = nil
 
     -- Add keymaps to switch back to terminal
     vim.api.nvim_buf_set_keymap(scrollback_buf, "n", "i", "", {
@@ -345,8 +342,20 @@ function M._open_scrollback(session_name)
     })
   end
 
-  -- Send content to scrollback terminal (renders ANSI codes properly)
-  vim.api.nvim_chan_send(term.scrollback_channel, content)
+  -- Send content to scrollback terminal
+  if term.scrollback_channel and vim.api.nvim_chan_is_valid(term.scrollback_channel) then
+    -- Channel exists, just send new content
+    vim.api.nvim_chan_send(term.scrollback_channel, table.concat(output, "\r\n"))
+  elseif is_new then
+    -- Create new terminal channel and send content
+    vim.api.nvim_buf_call(scrollback_buf, function()
+      vim.api.nvim_feedkeys("", "n") -- Enter normal mode first
+      term.scrollback_channel = vim.api.nvim_open_term(scrollback_buf, {})
+      if term.scrollback_channel and term.scrollback_channel > 0 then
+        vim.api.nvim_chan_send(term.scrollback_channel, table.concat(output, "\r\n"))
+      end
+    end)
+  end
 
   -- Switch window to scrollback buffer
   if vim.api.nvim_win_is_valid(term.winid) then
