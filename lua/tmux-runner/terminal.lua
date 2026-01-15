@@ -54,12 +54,6 @@ local bo_defaults = {
   filetype = "tmux-terminal",
 }
 
--- Default buffer options for scrollback
-local bo_scrollback = {
-  swapfile = false,
-  filetype = "log",
-}
-
 ---Set window options
 ---@param winid number Window id
 ---@param opts table Window options to apply
@@ -164,6 +158,7 @@ function M.attach(session_name, opts)
     winid = winid,
     job_id = job_id,
     scrollback_buf = nil,
+    scrollback_channel = nil,
     normal_mode = false,
   }
 
@@ -285,10 +280,10 @@ function M._open_scrollback(session_name)
     return
   end
 
-  -- Capture tmux pane content
+  -- Capture tmux pane content with escape sequences
   local cfg = config.get()
   local cmd = string.format(
-    "%s capture-pane -t %s -p -S -",
+    "%s capture-pane -t %s -e -p -S -",
     cfg.tmux_binary,
     vim.fn.shellescape(session_name)
   )
@@ -298,13 +293,21 @@ function M._open_scrollback(session_name)
     return
   end
 
+  -- Convert lines to single string with newlines
+  local content = table.concat(output, "\n")
+
   -- Create or reuse scrollback buffer
   local scrollback_buf = term.scrollback_buf
   if not scrollback_buf or not vim.api.nvim_buf_is_valid(scrollback_buf) then
     scrollback_buf = vim.api.nvim_create_buf(false, true)
-    set_bo(scrollback_buf, bo_scrollback)
+    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = scrollback_buf })
+    vim.api.nvim_set_option_value("buflisted", false, { buf = scrollback_buf })
+    vim.api.nvim_set_option_value("filetype", "tmux-scrollback", { buf = scrollback_buf })
     vim.api.nvim_buf_set_name(scrollback_buf, "tmux-scrollback://" .. session_name)
     term.scrollback_buf = scrollback_buf
+
+    -- Open terminal emulator for scrollback (this will render ANSI codes)
+    term.scrollback_channel = vim.api.nvim_open_term(scrollback_buf, cfg.tmux_binary)
 
     -- Add keymaps to switch back to terminal
     vim.api.nvim_buf_set_keymap(scrollback_buf, "n", "i", "", {
@@ -342,8 +345,8 @@ function M._open_scrollback(session_name)
     })
   end
 
-  -- Update buffer content
-  vim.api.nvim_buf_set_lines(scrollback_buf, 0, -1, false, output)
+  -- Send content to scrollback terminal (renders ANSI codes properly)
+  vim.api.nvim_chan_send(term.scrollback_channel, content)
 
   -- Switch window to scrollback buffer
   if vim.api.nvim_win_is_valid(term.winid) then
