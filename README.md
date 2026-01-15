@@ -6,6 +6,7 @@ A Neovim plugin that allows you to run multiple commands in background tmux sess
 
 - 🚀 Run commands in background tmux sessions
 - 📺 Attach to sessions via Neovim terminal buffers
+- 🔍 Scroll and search through full tmux history
 - 🔄 Toggle terminal visibility
 - 📋 List and manage sessions
 - ⌨️ Send keys/commands to running sessions
@@ -158,6 +159,17 @@ vim.keymap.set("n", "<leader>tt", ":TmuxToggle<CR>", { desc = "Toggle tmux termi
 ```
 
 ## Use Cases
+
+### Terminal Scrolling and Search
+
+When you attach to a tmux session, you can use normal mode to scroll and search through the full tmux history:
+
+- Press `Esc` to exit terminal mode and enter normal mode (scrollback buffer)
+- In normal mode, use `j/k`, `gg`, `G`, `/pattern`, `n/N` to navigate and search
+- Press `i` or `a` to return to terminal mode for interaction
+- Press `R` in normal mode to refresh the scrollback buffer with latest tmux content
+
+This uses `tmux capture-pane` to capture the full scrollback history from the tmux session, allowing you to search through past output that would otherwise be lost in the terminal buffer.
 
 ### Background Dev Server
 

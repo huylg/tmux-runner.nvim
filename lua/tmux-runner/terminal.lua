@@ -10,6 +10,68 @@ local M = {}
 -- { [session_name] = { bufnr = number, winid = number, job_id = number } }
 M._terminals = {}
 
+-- Default window options for terminal buffers
+local wo_defaults = {
+  winhighlight = "",
+  colorcolumn = "",
+  cursorcolumn = false,
+  cursorline = false,
+  fillchars = "eob: ",
+  list = false,
+  listchars = "tab:  ",
+  number = false,
+  relativenumber = false,
+  sidescrolloff = 0,
+  signcolumn = "no",
+  statuscolumn = "",
+  spell = false,
+  winbar = "",
+  wrap = false,
+}
+
+-- Default window options for scrollback buffers
+local wo_scrollback = {
+  winhighlight = "",
+  colorcolumn = "",
+  cursorcolumn = false,
+  cursorline = true,
+  fillchars = "eob: ",
+  list = false,
+  listchars = "tab:  ",
+  number = false,
+  relativenumber = false,
+  sidescrolloff = 0,
+  signcolumn = "no",
+  statuscolumn = "",
+  spell = false,
+  winbar = "",
+  wrap = true,
+}
+
+-- Default buffer options
+local bo_defaults = {
+  swapfile = false,
+  filetype = "tmux-terminal",
+}
+
+---Set window options
+---@param winid number Window id
+---@param opts table Window options to apply
+local function set_wo(winid, opts)
+  for k, v in pairs(opts) do
+    vim.api.nvim_set_option_value(k, v, { win = winid, scope = "local" })
+  end
+end
+
+---Set buffer options
+---@param bufnr number Buffer id
+---@param opts table Buffer options to apply
+local function set_bo(bufnr, opts)
+  for k, v in pairs(opts) do
+    vim.api.nvim_set_option_value(k, v, { buf = bufnr, scope = "local" })
+  end
+end
+
 ---Create a terminal buffer attached to a tmux session
 ---@param session_name string Full session name
 ---@param opts? { split?: "horizontal"|"vertical"|"float"|"current", size?: number }
@@ -61,9 +123,13 @@ function M.attach(session_name, opts)
   vim.api.nvim_win_set_buf(winid, bufnr)
 
   -- Set buffer options
-  vim.api.nvim_buf_set_option(bufnr, "bufhidden", "hide")
-  vim.api.nvim_buf_set_option(bufnr, "buflisted", false)
-  vim.api.nvim_win_set_option(winid, "statusline", "")
+  set_bo(bufnr, bo_defaults)
+  vim.api.nvim_set_option_value("bufhidden", "hide", { buf = bufnr })
+  vim.api.nvim_set_option_value("buflisted", false, { buf = bufnr })
+
+  -- Set window options
+  set_wo(winid, wo_defaults)
+  vim.api.nvim_set_option_value("statusline", "", { win = winid, scope = "local" })
 
   -- Build the attach command with chained set-option
   local attach_cmd = string.format(
@@ -91,10 +157,24 @@ function M.attach(session_name, opts)
     bufnr = bufnr,
     winid = winid,
     job_id = job_id,
+    scrollback_buf = nil,
+    normal_mode = false,
   }
 
   -- Set buffer name for identification
   vim.api.nvim_buf_set_name(bufnr, "tmux://" .. session_name)
+
+  -- Setup mode tracking for scrollback buffer
+  M._setup_mode_tracking(session_name, bufnr)
+
+  -- Add refresh keymap for scrollback
+  vim.api.nvim_buf_set_keymap(bufnr, "n", "R", "", {
+    noremap = true,
+    callback = function()
+      M._open_scrollback(session_name)
+    end,
+    desc = "Refresh scrollback",
+  })
 
   -- Enter insert mode for immediate interaction
   if cfg.focus_on_attach then
@@ -102,6 +182,200 @@ function M.attach(session_name, opts)
   end
 
   return bufnr, nil
+end
+
+---Setup mode tracking for scrollback buffer
+---@param session_name string
+---@param bufnr number
+function M._setup_mode_tracking(session_name, bufnr)
+  local group = vim.api.nvim_create_augroup("TmuxRunner_" .. session_name, { clear = true })
+
+  -- Track normal_mode state when leaving window
+  vim.api.nvim_create_autocmd("WinLeave", {
+    group = group,
+    buffer = bufnr,
+    callback = function()
+      local term = M._terminals[session_name]
+      if not term then
+        return
+      end
+      if vim.api.nvim_get_current_win() == term.winid then
+        term.normal_mode = vim.fn.mode() ~= "t"
+      end
+    end,
+  })
+
+  -- Restore mode when entering the terminal window
+  vim.api.nvim_create_autocmd("WinEnter", {
+    group = group,
+    callback = function()
+      local term = M._terminals[session_name]
+      if not term or not term.winid or not vim.api.nvim_win_is_valid(term.winid) then
+        return
+      end
+      if vim.api.nvim_get_current_win() ~= term.winid then
+        return
+      end
+      local current_buf = vim.api.nvim_win_get_buf(term.winid)
+      -- Only restore mode if we're in the terminal buffer
+      if current_buf == term.bufnr then
+        if term.normal_mode then
+          vim.cmd.stopinsert()
+        else
+          vim.cmd.startinsert()
+        end
+      end
+    end,
+  })
+
+  -- Open scrollback when leaving terminal mode
+  vim.api.nvim_create_autocmd("TermLeave", {
+    group = group,
+    buffer = bufnr,
+    callback = function()
+      local term = M._terminals[session_name]
+      if not term or not term.winid or not vim.api.nvim_win_is_valid(term.winid) then
+        return
+      end
+      if vim.api.nvim_win_get_buf(term.winid) == bufnr then
+        M._open_scrollback(session_name)
+      end
+    end,
+  })
+
+  -- Close scrollback when entering terminal mode
+  vim.api.nvim_create_autocmd("TermEnter", {
+    group = group,
+    buffer = bufnr,
+    callback = function()
+      local term = M._terminals[session_name]
+      if not term or not term.winid or not vim.api.nvim_win_is_valid(term.winid) then
+        return
+      end
+      if vim.api.nvim_win_get_buf(term.winid) == term.bufnr then
+        M._close_scrollback(session_name)
+      end
+    end,
+  })
+
+  -- Clean up scrollback buffer when terminal closes
+  vim.api.nvim_create_autocmd("TermClose", {
+    group = group,
+    buffer = bufnr,
+    callback = function()
+      local term = M._terminals[session_name]
+      if term and term.scrollback_buf and vim.api.nvim_buf_is_valid(term.scrollback_buf) then
+        vim.api.nvim_buf_delete(term.scrollback_buf, { force = true })
+      end
+    end,
+  })
+end
+
+---Open scrollback buffer with captured tmux content
+---@param session_name string
+function M._open_scrollback(session_name)
+  local term = M._terminals[session_name]
+  if not term then
+    return
+  end
+
+  -- Capture tmux pane content
+  local cfg = config.get()
+  local cmd = string.format(
+    "%s capture-pane -t %s -p -S -",
+    cfg.tmux_binary,
+    vim.fn.shellescape(session_name)
+  )
+
+  local output = vim.fn.systemlist(cmd)
+  if vim.v.shell_error ~= 0 or not output then
+    return
+  end
+
+  -- Create or reuse scrollback buffer
+  local scrollback_buf = term.scrollback_buf
+  if not scrollback_buf or not vim.api.nvim_buf_is_valid(scrollback_buf) then
+    scrollback_buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = scrollback_buf })
+    vim.api.nvim_set_option_value("buflisted", false, { buf = scrollback_buf })
+    vim.api.nvim_set_option_value("filetype", "tmux-scrollback", { buf = scrollback_buf })
+    vim.api.nvim_buf_set_name(scrollback_buf, "tmux-scrollback://" .. session_name)
+    term.scrollback_buf = scrollback_buf
+
+    -- Add keymaps to switch back to terminal
+    vim.api.nvim_buf_set_keymap(scrollback_buf, "n", "i", "", {
+      noremap = true,
+      callback = function()
+        M._close_scrollback(session_name)
+        vim.api.nvim_win_call(term.winid, function()
+          if term.normal_mode then
+            vim.cmd.startinsert()
+          end
+        end)
+      end,
+      desc = "Return to terminal mode",
+    })
+    vim.api.nvim_buf_set_keymap(scrollback_buf, "n", "a", "", {
+      noremap = true,
+      callback = function()
+        M._close_scrollback(session_name)
+        vim.api.nvim_win_call(term.winid, function()
+          if term.normal_mode then
+            vim.cmd.startinsert()
+          end
+        end)
+      end,
+      desc = "Return to terminal mode",
+    })
+    vim.api.nvim_buf_set_keymap(scrollback_buf, "n", "R", "", {
+      noremap = true,
+      callback = function()
+        M._open_scrollback(session_name)
+      end,
+      desc = "Refresh scrollback",
+    })
+  end
+
+  -- Update buffer content
+  vim.api.nvim_buf_set_lines(scrollback_buf, 0, -1, false, output)
+
+  -- Switch window to scrollback buffer
+  if vim.api.nvim_win_is_valid(term.winid) then
+    vim.api.nvim_win_set_buf(term.winid, scrollback_buf)
+
+    -- Set window options for scrollback
+    set_wo(term.winid, wo_scrollback)
+
+    -- Auto-scroll to bottom
+    vim.api.nvim_win_call(term.winid, function()
+      vim.cmd("normal G")
+    end)
+  end
+end
+
+---Close scrollback and return to live terminal
+---@param session_name string
+function M._close_scrollback(session_name)
+  local term = M._terminals[session_name]
+  if not term or not term.bufnr then
+    return
+  end
+
+  -- Check if we're currently showing the scrollback buffer
+  if not term.winid or not vim.api.nvim_win_is_valid(term.winid) then
+    return
+  end
+
+  local current_buf = vim.api.nvim_win_get_buf(term.winid)
+  if current_buf ~= term.scrollback_buf then
+    return
+  end
+
+  -- Switch back to terminal buffer
+  vim.api.nvim_win_set_buf(term.winid, term.bufnr)
+
+  -- Restore terminal window options
+  set_wo(term.winid, wo_defaults)
 end
 
 ---Create a floating window
@@ -236,6 +510,15 @@ function M.close(session_name)
   if not term then
     return false
   end
+
+  -- Clean up scrollback buffer
+  if term.scrollback_buf and vim.api.nvim_buf_is_valid(term.scrollback_buf) then
+    vim.api.nvim_buf_delete(term.scrollback_buf, { force = true })
+  end
+
+  -- Clear autocmds
+  pcall(vim.api.nvim_clear_autocmds, { group = "TmuxRunner_" .. session_name })
+  pcall(vim.api.nvim_del_augroup_by_id, vim.fn.getaugroupid("TmuxRunner_" .. session_name))
 
   -- Close windows showing this buffer
   for _, winid in ipairs(vim.api.nvim_list_wins()) do
