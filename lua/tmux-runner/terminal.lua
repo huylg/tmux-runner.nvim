@@ -158,7 +158,6 @@ function M.attach(session_name, opts)
     winid = winid,
     job_id = job_id,
     scrollback_buf = nil,
-    scrollback_channel = nil,
     normal_mode = false,
   }
 
@@ -342,20 +341,8 @@ function M._open_scrollback(session_name)
     })
   end
 
-  -- Send content to scrollback terminal
-  if term.scrollback_channel and vim.api.nvim_chan_is_valid(term.scrollback_channel) then
-    -- Channel exists, just send new content
-    vim.api.nvim_chan_send(term.scrollback_channel, table.concat(output, "\r\n"))
-  elseif is_new then
-    -- Create new terminal channel and send content
-    vim.api.nvim_buf_call(scrollback_buf, function()
-      vim.api.nvim_feedkeys("", "n") -- Enter normal mode first
-      term.scrollback_channel = vim.api.nvim_open_term(scrollback_buf, {})
-      if term.scrollback_channel and term.scrollback_channel > 0 then
-        vim.api.nvim_chan_send(term.scrollback_channel, table.concat(output, "\r\n"))
-      end
-    end)
-  end
+  -- Update buffer content (ANSI codes appear raw, scrollback is for text search)
+  vim.api.nvim_buf_set_lines(scrollback_buf, 0, -1, false, output)
 
   -- Switch window to scrollback buffer
   if vim.api.nvim_win_is_valid(term.winid) then
