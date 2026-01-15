@@ -171,6 +171,8 @@ When you attach to a tmux session, you can use normal mode to scroll and search 
 
  This uses `tmux capture-pane` to capture the full scrollback history from the tmux session, allowing you to search through past output that would otherwise be lost in the terminal buffer.
 
+**Note:** Scrollback displays raw ANSI escape sequences (e.g., `[1;31m`) for color codes. For colored output, stay in terminal mode or press `i`/`a` to return. The scrollback is primarily for text search, not colored viewing.
+
 ### Background Dev Server
 
 ```vim
