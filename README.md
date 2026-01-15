@@ -169,9 +169,7 @@ When you attach to a tmux session, you can use normal mode to scroll and search 
 - Press `i` or `a` to return to terminal mode for interaction
 - Press `R` in normal mode to refresh the scrollback buffer with latest tmux content
 
-This uses `tmux capture-pane` to capture the full scrollback history from the tmux session, allowing you to search through past output that would otherwise be lost in the terminal buffer.
-
-**Note:** ANSI color codes are preserved but appear as raw escape sequences (e.g., `x1b[31m`) in the scrollback buffer. For colored output, stay in terminal mode where colors render properly. Alternatively, consider using a plugin like [vim-ansi-highlight](https://github.com/powerman/vim-ansi-highlight) for ANSI code rendering.
+ This uses `tmux capture-pane` to capture the full scrollback history from the tmux session, allowing you to search through past output that would otherwise be lost in the terminal buffer.
 
 ### Background Dev Server
 
