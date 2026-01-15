@@ -306,11 +306,12 @@ function M._open_scrollback(session_name)
     vim.api.nvim_buf_set_keymap(scrollback_buf, "n", "i", "", {
       noremap = true,
       callback = function()
+        -- Clear normal_mode so WinEnter won't stopinsert
+        term.normal_mode = false
         M._close_scrollback(session_name)
-        vim.api.nvim_win_call(term.winid, function()
-          if term.normal_mode then
-            vim.cmd.startinsert()
-          end
+        -- Enter terminal mode after switch
+        vim.schedule(function()
+          vim.cmd.startinsert()
         end)
       end,
       desc = "Return to terminal mode",
@@ -318,11 +319,12 @@ function M._open_scrollback(session_name)
     vim.api.nvim_buf_set_keymap(scrollback_buf, "n", "a", "", {
       noremap = true,
       callback = function()
+        -- Clear normal_mode so WinEnter won't stopinsert
+        term.normal_mode = false
         M._close_scrollback(session_name)
-        vim.api.nvim_win_call(term.winid, function()
-          if term.normal_mode then
-            vim.cmd.startinsert()
-          end
+        -- Enter terminal mode after switch
+        vim.schedule(function()
+          vim.cmd.startinsert()
         end)
       end,
       desc = "Return to terminal mode",
