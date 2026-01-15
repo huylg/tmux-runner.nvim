@@ -54,6 +54,12 @@ local bo_defaults = {
   filetype = "tmux-terminal",
 }
 
+-- Default buffer options for scrollback
+local bo_scrollback = {
+  swapfile = false,
+  filetype = "log",
+}
+
 ---Set window options
 ---@param winid number Window id
 ---@param opts table Window options to apply
@@ -296,9 +302,7 @@ function M._open_scrollback(session_name)
   local scrollback_buf = term.scrollback_buf
   if not scrollback_buf or not vim.api.nvim_buf_is_valid(scrollback_buf) then
     scrollback_buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = scrollback_buf })
-    vim.api.nvim_set_option_value("buflisted", false, { buf = scrollback_buf })
-    vim.api.nvim_set_option_value("filetype", "tmux-scrollback", { buf = scrollback_buf })
+    set_bo(scrollback_buf, bo_scrollback)
     vim.api.nvim_buf_set_name(scrollback_buf, "tmux-scrollback://" .. session_name)
     term.scrollback_buf = scrollback_buf
 
